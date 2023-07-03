@@ -1,5 +1,6 @@
 from fastapi.security import OAuth2PasswordBearer
 
+from settings import settings
 from db.db_config import get_db
 from utils.hasher import check_hash
 from datetime import timedelta, datetime
@@ -9,7 +10,6 @@ from starlette import status
 from db.db_services import get_user
 from models import AuthUser, UserToken
 from jose import JWTError, jwt
-from settings import token_conf
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login/token")
 
@@ -24,16 +24,25 @@ async def authenticate(data: AuthUser, db: AsyncSession) -> tuple[bool, str]:
 
 
 def create_token(data: dict,
-                 tlc: timedelta = timedelta(minutes=token_conf.get('ACCESS_TOKEN_EXPIRE_MINUTES', 15))) -> str:
-    to_encode = data.copy().copy()
+                 tlc: timedelta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN)) -> str:
+    to_encode = data.copy()
     expire = datetime.utcnow() + tlc
     to_encode.update({'exp': expire})
-    encoded_jwt = jwt.encode(to_encode, token_conf.get('SECRET_KEY'), algorithm=token_conf.get('ALGORITHM', 'HS256'))
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
+def create_refresh_token(data: dict,
+                         tlc: timedelta = timedelta(minutes=settings.REFRESH_TOKEN_EXPIRES_IN)) -> tuple[str, datetime]:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + tlc
+    to_encode.update({'exp': expire})
+    encoded_jwt_refresh = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt_refresh, expire
+
+
 def decode_token(token: str):
-    payload = jwt.decode(token, token_conf.get('SECRET_KEY'), algorithms=token_conf.get('ALGORITHM', 'HS256'))
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=settings.ALGORITHM)
     return payload
 
 

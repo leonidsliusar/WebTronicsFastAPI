@@ -4,7 +4,7 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from fastapi.testclient import TestClient
-import settings
+from settings import settings
 from db.db_config import get_db
 from main import app
 from models import UserModel, UserModelOutput

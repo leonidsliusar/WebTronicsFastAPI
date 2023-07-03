@@ -1,12 +1,13 @@
 import re
 import uuid
+from typing import Optional
 from uuid import UUID
 from pydantic import BaseModel, validator, Field, EmailStr
 
 
 class UserModel(BaseModel):
-    first_name: str = Field(regex=r'^[a-zA-Z]+$')
-    last_name: str = Field(regex=r'^[a-zA-Z]+$')
+    first_name: str = Field(max_length=35, regex=r'^[a-zA-Z]+$')
+    last_name: str = Field(max_length=35, regex=r'^[a-zA-Z]+$')
     password: str = Field()
     email: EmailStr
 
@@ -44,3 +45,9 @@ class AuthUser(BaseModel):
 
 class UserToken(BaseModel):
     email: EmailStr
+
+
+class PostModel(BaseModel):
+    title: str = Field(max_length=60)
+    content: str
+    owner_id: Optional[uuid]
