@@ -7,7 +7,7 @@ from models import UserModel
     'password',
     [
         '123456qweRTYtest',
-        'QWERTy1234'
+        'Qwerty1234'
     ]
 )
 def test_hashing(password):

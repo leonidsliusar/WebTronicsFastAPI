@@ -23,19 +23,41 @@ async def setup_and_teardown_db() -> None:
 
 
 @pytest.fixture()
+async def get_stub_authenticate(*args, **kwargs):
+    return True, 'Ok'
+
+
+@pytest.fixture()
+def get_stub_create_token(*args, **kwargs):
+    return '123456'
+
+
+@pytest.fixture()
 def get_client() -> TestClient:
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as client:
         yield client
 
 
+@pytest.fixture()
+def get_stub_form() -> dict:
+    form = {
+        'username': 'foo@example.com',
+        'password': 'Qwerty1234'
+    }
+    return form
+
+
+@pytest.fixture()
+def get_stub_form_invalid() -> dict:
+    form = {
+        'username': 'foo@example.com',
+    }
+    return form
+
+
 async def override_get_db():
     yield
-    # engine = create_async_engine(settings.DB_TEST, echo=True)
-    # async_session = async_sessionmaker(engine, expire_on_commit=False)
-    # session = async_session()
-    # yield session
-    # await session.close()
 
 
 @pytest.fixture()

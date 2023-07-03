@@ -35,5 +35,12 @@ user_data = {
         "last_name": 'lastname',
         "email": "foo@example.com"
     }
-user = UserModelOutput(**user_data)
-print(user.json())
+
+
+class AuthUser(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserToken(BaseModel):
+    email: EmailStr
