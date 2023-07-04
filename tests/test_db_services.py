@@ -1,4 +1,8 @@
 import uuid
+
+from sqlalchemy import insert
+
+from db.db_schema import Post
 from db.db_services import create_user, get_user
 from models import UserModel, UserModelOutput, AuthUser, UserToken
 

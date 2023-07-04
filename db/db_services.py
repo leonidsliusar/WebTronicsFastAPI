@@ -1,8 +1,7 @@
 from typing import Union
-
-from sqlalchemy import insert, select, delete, update
+from sqlalchemy import insert, select, delete, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.db_schema import User, Post
+from db.db_schema import User, Post, Like, Dislike
 from models import UserModel, UserModelOutput, AuthUser, UserToken, PostModel
 from utils.hasher import hash_pass
 
@@ -62,3 +61,39 @@ async def update_post(post_id: id, data: PostModel, db: AsyncSession) -> None:
 async def delete_post(post_id: int, db: AsyncSession) -> None:
     query = delete(Post).where(Post.post_id == post_id)
     await db.execute(query)
+
+
+async def like_post(db: AsyncSession, email: str, post_id: int) -> int:
+    query = insert(Like).values(post_id=post_id, reviewer=email)
+    await db.execute(query)
+    query = select(func.count(Like.rate_id)).join(Post).where(Post.post_id == post_id)
+    row_likes_for_post = await db.execute(query)
+    likes_for_post = row_likes_for_post.scalar()
+    return likes_for_post
+
+
+async def dis_post(db: AsyncSession, email: str, post_id: int) -> int:
+    query = insert(Dislike).values(post_id=post_id, reviewer=email)
+    await db.execute(query)
+    query = select(func.count(Dislike.rate_id)).join(Post).where(Post.post_id == post_id)
+    row_dis_for_post = await db.execute(query)
+    dis_for_post = row_dis_for_post.scalar()
+    return dis_for_post
+
+
+async def remove_like_post(db: AsyncSession, email: str, post_id: int) -> int:
+    query = delete(Like).where(post_id=post_id, reviewer=email)
+    await db.execute(query)
+    query = select(func.count(Like.rate_id)).join(Post).where(Post.post_id == post_id)
+    row_likes_for_post = await db.execute(query)
+    likes_for_post = row_likes_for_post.scalar()
+    return likes_for_post
+
+
+async def remove_dis_post(db: AsyncSession, email: str, post_id: int) -> int:
+    query = delete(Dislike).where(post_id=post_id, reviewer=email)
+    await db.execute(query)
+    query = select(func.count(Dislike.rate_id)).join(Post).where(Post.post_id == post_id)
+    row_dis_for_post = await db.execute(query)
+    dis_for_post = row_dis_for_post.scalar()
+    return dis_for_post

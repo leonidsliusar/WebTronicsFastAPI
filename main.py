@@ -1,16 +1,19 @@
+from typing import Optional
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, Response, Cookie, APIRouter
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
-
 from auth_backend.authenticate import create_token, get_user_from_token, create_refresh_token, decode_token
+from cache_redis.cache import add_rate, show_reviewers, get_rate
 from db.db_config import get_db
-from db.db_services import create_user, delete_post, update_post, add_post, get_post, get_posts
+from db.db_services import create_user, delete_post, update_post, add_post, get_post, get_posts, like_post, \
+    remove_like_post, dis_post, remove_dis_post
 from models import UserModel, AuthUser, UserModelOutput, PostModel
 from auth_backend.authenticate import authenticate
-from utils.dependencies import is_owner, get_user_by_token
+from utils.dependencies import is_owner, get_user_by_token, check_like, check_dislike, check_like_for_del, \
+    check_dis_for_del
 from utils.paginations import Paginator
 
 app = FastAPI(title='service')
@@ -19,7 +22,7 @@ post_rout = APIRouter(prefix='/post')
 
 @app.post('/login/token')
 async def authentication(response: Response, form_data: OAuth2PasswordRequestForm = Depends(),
-               db: AsyncSession = Depends(get_db)) -> dict:
+                         db: AsyncSession = Depends(get_db)) -> dict:
     data = {"email": form_data.username, "password": form_data.password}
     user = AuthUser(**data)
     check = await authenticate(user, db)
@@ -111,6 +114,50 @@ async def remove_post(post_id: int, token: str = Depends(get_user_from_token),
                       owner: str = Depends(is_owner), db: AsyncSession = Depends(get_db)) -> Response:
     await delete_post(post_id, db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@post_rout.post('/{post_id}/like')
+async def add_like(post_id: int, token: str = Depends(get_user_from_token),
+                   like: Optional[str] = Depends(check_like), db: AsyncSession = Depends(get_db)) -> dict:
+    if like:
+        total_likes = await like_post(db, like, post_id)
+        return {post_id: total_likes}
+
+
+@post_rout.delete('/{post_id}/like')
+async def remove_like(post_id: int, token: str = Depends(get_user_from_token),
+                      check_for_del: Optional[str] = Depends(check_like_for_del),
+                      db: AsyncSession = Depends(get_db)) -> dict:
+    if check_for_del:
+        total_likes = await remove_like_post(db, check_for_del, post_id)
+        return {post_id: total_likes}
+
+
+@post_rout.post('/{post_id}/dis')
+async def add_dis(post_id: int, token: str = Depends(get_user_from_token),
+                  dis: Optional[str] = Depends(check_dislike), db: AsyncSession = Depends(get_db)) -> dict:
+    if dis:
+        total_likes = await dis_post(db, dis, post_id)
+        return {post_id: total_likes}
+
+
+@post_rout.delete('/{post_id}/dis')
+async def remove_dis(post_id: int, token: str = Depends(get_user_from_token),
+                     check_for_del: Optional[str] = Depends(check_dis_for_del),
+                     db: AsyncSession = Depends(get_db)) -> dict:
+    if check_for_del:
+        total_likes = await remove_dis_post(db, check_for_del, post_id)
+        return {post_id: total_likes}
+
+
+@post_rout.get('/{post_id}/total_rate')
+async def show_like(post_id: int, token: str = Depends(get_user_from_token)) -> dict:
+    return {
+        'total_likes': get_rate('likes', post_id),
+        'user_set_likes': show_reviewers('likes', post_id),
+        'total_dislikes': get_rate('dis', post_id),
+        'user_set_dislikes': show_reviewers('dis', post_id),
+            }
 
 
 app.include_router(post_rout)

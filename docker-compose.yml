@@ -4,10 +4,15 @@ volumes:
   postgres_volume:
 
 services:
-
+  redis:
+    image: redis:latest
+    container_name: social_net_cache
+    restart: always
+    ports:
+      - '6379:6379'
   postgres:
     image: postgres:15.3-alpine
-    container_name: social_net
+    container_name: social_net_db
     volumes:
       - postgres_volume:/var/lib/postgresql/data
     restart: always

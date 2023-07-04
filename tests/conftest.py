@@ -1,7 +1,9 @@
 import asyncio
 import os
+import time
 import uuid
 import pytest
+import redis
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from fastapi.testclient import TestClient
 from settings import settings
@@ -80,3 +82,19 @@ async def get_stub_output_user(*args, **kwargs) -> UserModelOutput:
         "email": "foo@example.com"
     }
     return UserModelOutput(**user_data)
+
+
+@pytest.fixture(scope='function')
+def setup_and_teardown_cache() -> None:
+    os.system('docker compose -f tests/docker-compose_test_cache.yml up -d')
+    r = redis.Redis(host=settings.REDIS_HOST, port=6380, decode_responses=True)
+    time.sleep(2)
+    yield r
+    r.close()
+    os.system('docker rm -f social_net_test_cache')
+
+
+@pytest.fixture(scope='function')
+def redis_session():
+    r = redis.Redis(host=settings.REDIS_HOST, port=6380, decode_responses=True)
+    return r
