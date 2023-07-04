@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, Response, Cookie, APIRouter, Query
+from fastapi import FastAPI, Depends, HTTPException, Response, Cookie, APIRouter
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,13 +11,14 @@ from db.db_services import create_user, delete_post, update_post, add_post, get_
 from models import UserModel, AuthUser, UserModelOutput, PostModel
 from auth_backend.authenticate import authenticate
 from utils.dependencies import is_owner, get_user_by_token
+from utils.paginations import Paginator
 
 app = FastAPI(title='service')
-post = APIRouter(prefix='/post')
+post_rout = APIRouter(prefix='/post')
 
 
 @app.post('/login/token')
-async def auth(response: Response, form_data: OAuth2PasswordRequestForm = Depends(),
+async def authentication(response: Response, form_data: OAuth2PasswordRequestForm = Depends(),
                db: AsyncSession = Depends(get_db)) -> dict:
     data = {"email": form_data.username, "password": form_data.password}
     user = AuthUser(**data)
@@ -43,7 +44,7 @@ async def logout(response: Response) -> Response:
 
 
 @app.post('/reg')
-async def reg(data: UserModel, db: AsyncSession = Depends(get_db)) -> UserModelOutput:
+async def register(data: UserModel, db: AsyncSession = Depends(get_db)) -> UserModelOutput:
     new_user = await create_user(data, db)
     return new_user
 
@@ -61,10 +62,10 @@ async def refresh_token(refresh_token: str = Cookie(None)) -> dict:
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@post.get('')
+@post_rout.get('')
 async def read_posts(token: str = Depends(get_user_from_token), db: AsyncSession = Depends(get_db),
-                     page: int = Query(ge=0, default=0), limit: int = Query(ge=1, le=100, default=10)) -> list[dict]:
-    posts_list = await get_posts(db, page, limit)
+                     pagination: Paginator = Depends(Paginator)) -> list[dict]:
+    posts_list = await get_posts(db, *pagination)
     if not posts_list:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -73,7 +74,7 @@ async def read_posts(token: str = Depends(get_user_from_token), db: AsyncSession
     return posts_list
 
 
-@post.get('/{post_id}')
+@post_rout.get('/{post_id}')
 async def read_post(post_id: int, token: str = Depends(get_user_from_token),
                     db: AsyncSession = Depends(get_db)) -> dict:
     post = await get_post(post_id, db)
@@ -85,30 +86,34 @@ async def read_post(post_id: int, token: str = Depends(get_user_from_token),
     return post
 
 
-@post.post('')
+@post_rout.post('')
 async def new_post(data: PostModel, user_id: str = Depends(get_user_by_token),
                    token: str = Depends(get_user_from_token), db: AsyncSession = Depends(get_db)) -> Response:
     data.owner_id = user_id
     await add_post(data, db)
-    return Response(status_code=status.HTTP_201_CREATED)
+    return Response(status_code=status.HTTP_200_OK)
 
 
-@post.put('/{post_id}')
+@post_rout.put('/{post_id}')
 async def modify_post(post_id: int, data: PostModel, token: str = Depends(get_user_from_token),
                       owner: str = Depends(is_owner), db: AsyncSession = Depends(get_db)) -> Response:
-    data.owner_id = owner
+    user_id, is_admin = owner
+    if is_admin:
+        data.modify_id = user_id
+    else:
+        data.owner_id = user_id
     await update_post(post_id, data, db)
     return Response(status_code=status.HTTP_200_OK)
 
 
-@post.delete('/{post_id}')
+@post_rout.delete('/{post_id}')
 async def remove_post(post_id: int, token: str = Depends(get_user_from_token),
                       owner: str = Depends(is_owner), db: AsyncSession = Depends(get_db)) -> Response:
     await delete_post(post_id, db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-app.include_router(post)
+app.include_router(post_rout)
 
 if __name__ == '__main__':
-    uvicorn.run(app)
+    uvicorn.run('main:app', port=8000, host='0.0.0.0', reload=True)

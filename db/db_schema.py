@@ -34,6 +34,11 @@ class Post(Base):
     update_at: Mapped[str] = mapped_column(DateTime, default=now, onupdate=now)
     owner_id: Mapped[uuid] = mapped_column(UUID, ForeignKey(User.user_id, ondelete="CASCADE"), nullable=False)
     owner: Mapped['User'] = relationship(back_populates='post')
+    modify_id: Mapped[uuid] = mapped_column(UUID, ForeignKey(User.user_id, ondelete="CASCADE"), nullable=False)
+
+    def __init__(self):
+        super().__init__()
+        self.modify_id = self.owner_id
 
     def __repr__(self) -> str:
         return f'{self.title, self.owner}'

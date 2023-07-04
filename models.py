@@ -50,4 +50,5 @@ class UserToken(BaseModel):
 class PostModel(BaseModel):
     title: str = Field(max_length=60)
     content: str
-    owner_id: Optional[uuid]
+    owner_id: Optional[UUID]
+    modify_id: Optional[UUID]
