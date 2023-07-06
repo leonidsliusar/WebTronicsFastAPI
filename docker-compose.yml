@@ -21,6 +21,7 @@ services:
       - DB_LOGIN=postgres
       - DB_PASSWORD=postgres
       - DB_NAME=social_net
+      - DB_TEST_PORT=5451
       - REFRESH_TOKEN_EXPIRES_IN=10080
       - ACCESS_TOKEN_EXPIRES_IN=15
       - ALGORITHM=HS256

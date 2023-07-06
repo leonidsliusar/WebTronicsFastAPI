@@ -19,7 +19,7 @@ To stop containers:
     make stop_app 
 or 
 
-    docker compose down -v
+    docker compose down -v --rmi all
 
 
 
