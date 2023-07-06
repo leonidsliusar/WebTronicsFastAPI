@@ -1,6 +1,10 @@
 Here is the ways to run this app:
 
+Choose directory to store project.
 
+Then clone the project 
+
+    git clone https://github.com/leonidsliusar/WebTronicsFastAPI
 You could use the command in the Makefile by the order or use docker commands:
 
 To run app:
