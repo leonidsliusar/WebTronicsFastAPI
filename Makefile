@@ -1,8 +1,10 @@
+SHELL := /bin/bash
+
 run_app:
 	docker compose up -d
 
 stop_app:
-	docker docker compose down -v --rmi all
+	docker compose down -v --rmi all
 
 test:
 	pip install poetry && \
