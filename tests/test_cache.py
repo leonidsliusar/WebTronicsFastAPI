@@ -1,8 +1,8 @@
 from cache_redis.cache import add_rate, show_reviewers, check_exists_rate, get_rate, remove_rate
 
 
-def test_rate_op(setup_and_teardown_cache, monkeypatch):
-    monkeypatch.setattr('cache_redis.cache.r', setup_and_teardown_cache)
+def test_rate_op(setup_and_teardown_cache, monkeypatch, redis_session):
+    monkeypatch.setattr('cache_redis.cache.r', redis_session)
     added = add_rate('likes', 1, 'foo@example.com')
     assert added == 1
     added = add_rate('likes', 1, 'foo@example.com')

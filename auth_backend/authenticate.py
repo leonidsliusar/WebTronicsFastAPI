@@ -7,7 +7,7 @@ from datetime import timedelta, datetime
 from fastapi import HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
-from db.db_services import get_user
+from db.db_services import UserManager
 from models import AuthUser, UserToken
 from jose import JWTError, jwt
 
@@ -15,7 +15,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login/token")
 
 
 async def authenticate(data: AuthUser, db: AsyncSession) -> tuple[bool, str]:
-    user = await get_user(data, db)
+    manager = UserManager(db)
+    user = await manager.get(data)
     if user:
         flag = check_hash(data.password, user.get('password'))
         return flag, 'Ok' if flag else 'Invalid password'
@@ -60,7 +61,8 @@ async def get_user_from_token(token: str = Depends(oauth2_scheme), db: AsyncSess
     except JWTError:
         raise credentials_exception
     user = UserToken(email=email)
-    user_data = await get_user(user, db)
+    manager = UserManager(db)
+    user_data = await manager.get(user)
     if not user_data:
         raise credentials_exception
     user_data.pop('password')

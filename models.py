@@ -31,11 +31,11 @@ class UserModelOutput(BaseModel):
 
 
 user_data = {
-        "user_id": uuid.uuid4(),
-        "first_name": 'firstname',
-        "last_name": 'lastname',
-        "email": "foo@example.com"
-    }
+    "user_id": uuid.uuid4(),
+    "first_name": 'firstname',
+    "last_name": 'lastname',
+    "email": "foo@example.com"
+}
 
 
 class AuthUser(BaseModel):
@@ -52,3 +52,8 @@ class PostModel(BaseModel):
     content: str
     owner_id: Optional[UUID]
     modify_id: Optional[UUID]
+
+
+class UpdatePostModel(BaseModel):
+    title: Optional[str] = Field(max_length=60)
+    content: Optional[str]

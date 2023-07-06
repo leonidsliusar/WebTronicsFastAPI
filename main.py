@@ -6,11 +6,10 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from auth_backend.authenticate import create_token, get_user_from_token, create_refresh_token, decode_token
-from cache_redis.cache import add_rate, show_reviewers, get_rate
+from cache_redis.cache import show_reviewers, get_rate
 from db.db_config import get_db
-from db.db_services import create_user, delete_post, update_post, add_post, get_post, get_posts, like_post, \
-    remove_like_post, dis_post, remove_dis_post
-from models import UserModel, AuthUser, UserModelOutput, PostModel
+from db.db_services import UserManager, PostManager
+from models import UserModel, AuthUser, UserModelOutput, PostModel, UpdatePostModel
 from auth_backend.authenticate import authenticate
 from utils.dependencies import is_owner, get_user_by_token, check_like, check_dislike, check_like_for_del, \
     check_dis_for_del
@@ -48,7 +47,7 @@ async def logout(response: Response) -> Response:
 
 @app.post('/reg')
 async def register(data: UserModel, db: AsyncSession = Depends(get_db)) -> UserModelOutput:
-    new_user = await create_user(data, db)
+    new_user = await UserManager(db).create(data)
     return new_user
 
 
@@ -65,10 +64,21 @@ async def refresh_token(refresh_token: str = Cookie(None)) -> dict:
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@post_rout.get('')
-async def read_posts(token: str = Depends(get_user_from_token), db: AsyncSession = Depends(get_db),
+@post_rout.get('/filter')
+async def read_posts_filter(token: dict = Depends(get_user_from_token), db: AsyncSession = Depends(get_db),
                      pagination: Paginator = Depends(Paginator)) -> list[dict]:
-    posts_list = await get_posts(db, *pagination)
+    posts_list = await PostManager(db).get_many_filter(**pagination.__dict__)
+    if not posts_list:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Posts does'\t exists"
+        )
+    return posts_list
+
+
+@post_rout.get('')
+async def read_posts(token: dict = Depends(get_user_from_token), db: AsyncSession = Depends(get_db)) -> list[dict]:
+    posts_list = await PostManager(db).get_many()
     if not posts_list:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -78,9 +88,9 @@ async def read_posts(token: str = Depends(get_user_from_token), db: AsyncSession
 
 
 @post_rout.get('/{post_id}')
-async def read_post(post_id: int, token: str = Depends(get_user_from_token),
+async def read_post(post_id: int, token: dict = Depends(get_user_from_token),
                     db: AsyncSession = Depends(get_db)) -> dict:
-    post = await get_post(post_id, db)
+    post = await PostManager(db).get(post_id)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -90,68 +100,73 @@ async def read_post(post_id: int, token: str = Depends(get_user_from_token),
 
 
 @post_rout.post('')
-async def new_post(data: PostModel, user_id: str = Depends(get_user_by_token),
-                   token: str = Depends(get_user_from_token), db: AsyncSession = Depends(get_db)) -> Response:
+async def new_post(data: PostModel,
+                   token: dict = Depends(get_user_from_token), db: AsyncSession = Depends(get_db)) -> Response:
+    user_id = token.get('user_id')
     data.owner_id = user_id
-    await add_post(data, db)
+    data.modify_id = user_id
+    await PostManager(db).create(data)
     return Response(status_code=status.HTTP_200_OK)
 
 
 @post_rout.put('/{post_id}')
-async def modify_post(post_id: int, data: PostModel, token: str = Depends(get_user_from_token),
-                      owner: str = Depends(is_owner), db: AsyncSession = Depends(get_db)) -> Response:
-    user_id, is_admin = owner
+async def modify_post(post_id: int, data: PostModel, token: dict = Depends(get_user_from_token),
+                      db: AsyncSession = Depends(get_db)) -> Response:
+    user_id, is_admin = await is_owner(token, post_id, db)
     if is_admin:
         data.modify_id = user_id
     else:
         data.owner_id = user_id
-    await update_post(post_id, data, db)
+    await PostManager(db).update(post_id, data)
     return Response(status_code=status.HTTP_200_OK)
 
 
 @post_rout.delete('/{post_id}')
-async def remove_post(post_id: int, token: str = Depends(get_user_from_token),
-                      owner: str = Depends(is_owner), db: AsyncSession = Depends(get_db)) -> Response:
-    await delete_post(post_id, db)
+async def remove_post(post_id: int, token: dict = Depends(get_user_from_token),
+                      db: AsyncSession = Depends(get_db)) -> Response:
+    await is_owner(token, post_id, db)
+    await PostManager(db).delete(post_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @post_rout.post('/{post_id}/like')
-async def add_like(post_id: int, token: str = Depends(get_user_from_token),
-                   like: Optional[str] = Depends(check_like), db: AsyncSession = Depends(get_db)) -> dict:
-    if like:
-        total_likes = await like_post(db, like, post_id)
+async def add_like(post_id: int, token: dict = Depends(get_user_from_token),
+                   db: AsyncSession = Depends(get_db)) -> dict:
+    email = await check_like(token, post_id, db)
+    if email:
+        total_likes = await PostManager(db).add_like(email, post_id)
         return {post_id: total_likes}
 
 
 @post_rout.delete('/{post_id}/like')
-async def remove_like(post_id: int, token: str = Depends(get_user_from_token),
-                      check_for_del: Optional[str] = Depends(check_like_for_del),
+async def remove_like(post_id: int, token: dict = Depends(get_user_from_token),
                       db: AsyncSession = Depends(get_db)) -> dict:
-    if check_for_del:
-        total_likes = await remove_like_post(db, check_for_del, post_id)
+    email = await check_like_for_del(token, post_id, db)
+    if email:
+        total_likes = await PostManager(db).remove_like(email, post_id)
         return {post_id: total_likes}
 
 
 @post_rout.post('/{post_id}/dis')
-async def add_dis(post_id: int, token: str = Depends(get_user_from_token),
-                  dis: Optional[str] = Depends(check_dislike), db: AsyncSession = Depends(get_db)) -> dict:
-    if dis:
-        total_likes = await dis_post(db, dis, post_id)
-        return {post_id: total_likes}
+async def add_dis(post_id: int, token: dict = Depends(get_user_from_token),
+                  db: AsyncSession = Depends(get_db)) -> dict:
+    email = await check_dislike(token, post_id, db)
+    if email:
+        total_dis = await PostManager(db).add_dis(email, post_id)
+        return {post_id: total_dis}
 
 
 @post_rout.delete('/{post_id}/dis')
-async def remove_dis(post_id: int, token: str = Depends(get_user_from_token),
-                     check_for_del: Optional[str] = Depends(check_dis_for_del),
+async def remove_dis(post_id: int, token: dict = Depends(get_user_from_token),
                      db: AsyncSession = Depends(get_db)) -> dict:
-    if check_for_del:
-        total_likes = await remove_dis_post(db, check_for_del, post_id)
-        return {post_id: total_likes}
+    email = await check_dis_for_del(token, post_id, db)
+    if email:
+        total_dis = await PostManager(db).remove_dis(email, post_id)
+        return {post_id: total_dis}
 
 
 @post_rout.get('/{post_id}/total_rate')
-async def show_like(post_id: int, token: str = Depends(get_user_from_token)) -> dict:
+async def show_like(post_id: int, token: dict = Depends(get_user_from_token)) -> dict:
     return {
         'total_likes': get_rate('likes', post_id),
         'user_set_likes': show_reviewers('likes', post_id),

@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 from auth_backend.authenticate import authenticate, create_token, decode_token, get_user_from_token
-from db.db_services import create_user
+from db.db_services import UserManager
 from models import AuthUser, UserModel
 
 
@@ -20,7 +20,7 @@ async def test_authenticate(setup_and_teardown_db, password_create, email_create
     )
     session = setup_and_teardown_db
     async with session:
-        await create_user(user, session)
+        await UserManager(session).create(user)
         user_data = AuthUser(
             email=email_check,
             password=password_check
@@ -46,7 +46,7 @@ async def test_get_user_from_token(setup_and_teardown_db):
     token = create_token({'sub': 'foo@example.com'})
     session = setup_and_teardown_db
     async with session:
-        await create_user(user, session)
+        await UserManager(session).create(user)
         user_data = await get_user_from_token(token, session)
     assert user_data.get('first_name') == user.first_name
     assert user_data.get('last_name') == user.last_name
@@ -70,7 +70,7 @@ async def test_failed_user_from_token(setup_and_teardown_db, email, token, expec
     token = token if token else create_token({'sub': email})
     session = setup_and_teardown_db
     async with session:
-        await create_user(user, session)
+        await UserManager(session).create(user)
         with pytest.raises(HTTPException) as e:
             await get_user_from_token(token, session)
     assert e.value.status_code, e.value.detail == expected_result
@@ -86,7 +86,7 @@ async def test_failed_user_from_invalid_token(setup_and_teardown_db):
     token = create_token({'sub': 'foo@example.com'})
     session = setup_and_teardown_db
     async with session:
-        await create_user(user, session)
+        await UserManager(session).create(user)
         with pytest.raises(HTTPException) as e:
             await get_user_from_token(token*2, session)
     assert e.value.status_code, e.value.detail == ('401', 'Could not validate credentials')
