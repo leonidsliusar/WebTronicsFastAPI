@@ -34,7 +34,7 @@ You could test it with pytest:
 or
 
     pip install poetry && \
-    poetry install --no-interaction && \
+    poetry install --no-interaction --dev && \
     export DB_LOGIN=postgres && \
     export DB_PASSWORD=postgres && \
     export DB_NAME=social_net && \
