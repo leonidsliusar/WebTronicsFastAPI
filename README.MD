@@ -27,7 +27,7 @@ or
 
 
 
-You could test it with pytest:
+You could test it with pytest*:
 
     make test
 
@@ -52,6 +52,10 @@ or
     poetry update && \
     pytest -vv
 
+You could see in terminal  
+![img.png](img_dir_readme/img11.png)
+
+*If you run tests at the first time it could take more time, because here is no pycache yet (as .pyc).
 
 The tests include unit and integrity tests. It uses PostgreSQL and Redis in containers, so Docker is a requirement.
 
