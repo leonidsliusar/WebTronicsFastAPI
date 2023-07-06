@@ -1,0 +1,14 @@
+version: '3.0'
+
+
+services:
+  postgres:
+    image: postgres:15.3-alpine
+    container_name: social_net_dev
+    restart: always
+    ports:
+      - '5450:5432'
+    environment:
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
+      POSTGRES_DB: 'social_net'
