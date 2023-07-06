@@ -120,7 +120,7 @@ All alembic ini files:
 │   ├── __init__.py
 ├── db
 │   ├── db_config.py ------------- engine and sessions have created here
-│   ├── db_schema.py ------------- db shema (db models)
+│   ├── db_schema.py ------------- db schema (db models)
 │   ├── db_services.py ----------- CRUD services (DAL) 
 │   ├── __init__.py
 ├── docker-compose_db.yml -------------- container with postgres to dev
